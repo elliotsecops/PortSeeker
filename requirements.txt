@@ -1,0 +1,6 @@
+requests==2.26.0
+python-dotenv==0.19.1
+tenacity==8.0.1
+requests-cache==0.8.1
+python-nmap==0.7.1
+ratelimit==2.2.1
