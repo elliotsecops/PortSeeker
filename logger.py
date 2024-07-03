@@ -26,13 +26,14 @@ def setup_logger(log_file='portseeker.log', log_level=logging.DEBUG, max_size=10
     
     return logger
 
-# Load log file name and log level from environment variables if available, otherwise use defaults
 log_file = os.getenv('PORTSEEKER_LOG_FILE', 'portseeker.log')
 log_level = os.getenv('PORTSEEKER_LOG_LEVEL', 'DEBUG')
 log_level = getattr(logging, log_level.upper(), logging.DEBUG)
 
-# Create a default logger instance
 default_logger = setup_logger(log_file=log_file, log_level=log_level)
 
-# Export both the default logger and the setup_logger function
 __all__ = ['default_logger', 'setup_logger']
+
+default_logger = setup_logger(log_file=log_file, log_level=log_level)
+
+__all__ = ['setup_logger', 'default_logger']
