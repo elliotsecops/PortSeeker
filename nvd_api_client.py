@@ -1,7 +1,7 @@
 import requests
 import requests_cache
 from config import NVD_API_KEY
-from logger import logger
+from logger import default_logger as logger
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from typing import Dict, Any, Optional, List
 import json
