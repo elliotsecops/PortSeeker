@@ -6,12 +6,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="PortSeeker",
     version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="ElliotSecOps",
+    author_email="elliotsecops@protonmail.com",
     description="A port scanning and vulnerability assessment tool leveraging the NVD API.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/portseeker",
+    url="https://github.com/DigitalNinja00/PortSeeker",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 3 - Alpha",
