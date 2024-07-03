@@ -3,7 +3,7 @@ import nmap
 import asyncio
 from ratelimit import limits, sleep_and_retry
 from nvd_api_client import NVDAPIClient
-from logger import setup_logger
+from logger import default_logger as logger
 import os
 from dotenv import load_dotenv
 
