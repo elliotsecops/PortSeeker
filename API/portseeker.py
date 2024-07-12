@@ -1,99 +1,109 @@
-import argparse
-import nmap
-import asyncio
-from ratelimit import limits, sleep_and_retry
-from nvd_api_client import NVDAPIClient
-from portseeker.logger import setup_logger, default_logger as logger
+import sys
 import os
-from dotenv import load_dotenv
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-load_dotenv()
+import pytest
+import asyncio
+from unittest.mock import MagicMock, patch
+from API.portseeker import PortSeeker
+from tests.helper import run_in_executor
 
-logger = setup_logger(__name__)
+@pytest.fixture
+def mock_nvd_client():
+    with patch('API.portseeker.NVDAPIClient') as mock:
+        yield mock
 
-class PortSeeker:
-    CALLS = 5
-    RATE_LIMIT = 30
+@pytest.fixture
+def mock_nmap():
+    with patch('API.portseeker.nmap.PortScanner') as mock:
+        mock_instance = mock.return_value
+        mock_instance.all_hosts.return_value = ['127.0.0.1']
+        mock_instance['127.0.0.1'].all_protocols.return_value = ['tcp']
+        mock_instance['127.0.0.1']['tcp'].keys.return_value = [80, 443]
+        mock_instance['127.0.0.1']['tcp'][80] = {'name': 'http', 'version': '1.1', 'product': 'Some Server', 'extrainfo': 'Some extra info'}
+        mock_instance['127.0.0.1']['tcp'][443] = {'name': 'https', 'version': '1.1', 'product': 'Another Server', 'extrainfo': 'More extra info'}
+        yield mock
 
-    def __init__(self):
-        self.nvd_client = NVDAPIClient()
+@pytest.mark.asyncio
+async def test_scan_ports(mock_nmap):
+    mock_nmap_instance = mock_nmap.return_value
+    port_seeker = PortSeeker()
+    services = await port_seeker.scan_ports('127.0.0.1')
 
-    async def scan_ports(self, target):
-        logger.info(f"Scanning ports for target: {target}")
-        nm = nmap.PortScanner()
-        try:
-            nm.scan(target, arguments='-sV')  # -sV for version detection
-            services = []
-            for host in nm.all_hosts():
-                for proto in nm[host].all_protocols():
-                    lport = nm[host][proto].keys()
-                    for port in lport:
-                        service = nm[host][proto][port]
-                        services.append({
-                            'port': port,
-                            'service': service['name'],
-                            'version': service['version']
-                        })
-            return services
-        except nmap.PortScannerError as e:
-            logger.error(f"Nmap scan error: {str(e)}")
-            return []
-        except Exception as e:
-            logger.error(f"Unexpected error during port scan: {str(e)}")
-            return []
+    assert len(services) == 2
+    assert services[0]['port'] == 80
+    assert services[0]['service'] == mock_nmap_instance['127.0.0.1']['tcp'][80]['name']
+    assert services[0]['version'] == mock_nmap_instance['127.0.0.1']['tcp'][80]['version']
+    assert services[1]['port'] == 443
+    assert services[1]['service'] == mock_nmap_instance['127.0.0.1']['tcp'][443]['name']
+    assert services[1]['version'] == mock_nmap_instance['127.0.0.1']['tcp'][443]['version']
 
-    @sleep_and_retry
-    @limits(calls=CALLS, period=RATE_LIMIT)
-    async def scan_vulnerability(self, service):
-        try:
-            keyword = f"{service['service']} {service['version']}"
-            logger.debug(f"Scanning vulnerabilities for: {keyword}")
-            response = await self.nvd_client.search_vulnerabilities(keyword)
-            parsed_vulns = self.nvd_client.parse_vulnerabilities(response)
-            for vuln in parsed_vulns:
-                vuln['port'] = service['port']
-            return parsed_vulns
-        except Exception as e:
-            logger.error(f"Error scanning vulnerabilities for {service}: {str(e)}")
-            return []
-
-    async def scan_vulnerabilities(self, services):
-        tasks = [self.scan_vulnerability(service) for service in services]
-        results = await asyncio.gather(*tasks)
-        return [vuln for sublist in results for vuln in sublist]
-
-    async def run(self, target):
-        try:
-            services = await self.scan_ports(target)
-            vulnerabilities = await self.scan_vulnerabilities(services)
-            return vulnerabilities
-        except Exception as e:
-            logger.error(f"Error during scan: {str(e)}")
-            return []
-
-async def main():
-    parser = argparse.ArgumentParser(description="PortSeeker - Port and Vulnerability Scanner")
-    parser.add_argument("target", help="The target IP address or hostname to scan")
-    args = parser.parse_args()
+@pytest.mark.asyncio
+async def test_scan_vulnerability(mock_nvd_client):
+    mock_nvd_client_instance = mock_nvd_client.return_value
+    mock_nvd_client_instance.search_vulnerabilities.return_value = MagicMock(json=lambda: {'vulnerabilities': [
+        {'cve': {'id': 'CVE-2021-1234', 'descriptions': [{'value': 'Test description'}], 'metrics': {'cvssMetricV31': [{'cvssData': {'baseScore': 7.5}}]}}}
+    ]})
+    mock_nvd_client_instance.parse_vulnerabilities.return_value = [
+        {'id': 'CVE-2021-1234', 'description': 'Test description', 'cvssScore': 7.5}
+    ]
 
     port_seeker = PortSeeker()
-    try:
-        vulnerabilities = await asyncio.wait_for(port_seeker.run(args.target), timeout=300)
-        
-        if not vulnerabilities:
-            logger.info("No vulnerabilities found.")
-            return
+    vulns = await port_seeker.scan_vulnerability({'port': 80, 'service': 'http', 'version': '1.1'})
 
-        for vuln in vulnerabilities:
-            print(f"Port: {vuln['port']}")
-            print(f"CVE ID: {vuln['id']}")
-            print(f"Description: {vuln['description']}")
-            print(f"CVSS Score: {vuln['cvssScore']}")
-            print("---")
-    except asyncio.TimeoutError:
-        logger.error("Scan timed out after 300 seconds")
-    except Exception as e:
-        logger.error(f"An error occurred: {str(e)}")
+    assert len(vulns) == 1
+    assert vulns[0]['port'] == 80
+    assert vulns[0]['id'] == 'CVE-2021-1234'
+    assert vulns[0]['description'] == 'Test description'
+    assert vulns[0]['cvssScore'] == 7.5
 
-if __name__ == "__main__":
-    asyncio.run(main())
+@pytest.mark.asyncio
+async def test_scan_vulnerabilities(mock_nvd_client):
+    # Mock the scan_vulnerability method to return predictable results
+    port_seeker = PortSeeker()
+    
+    async def mock_scan_vulnerability(service):
+        if service['port'] == 80:
+            return [{'id': 'CVE-2021-1234', 'description': 'Test description', 'cvssScore': 7.5, 'port': 80}]
+        elif service['port'] == 443:
+            return [{'id': 'CVE-2021-1234', 'description': 'Test description', 'cvssScore': 7.5, 'port': 443}]
+    
+    port_seeker.scan_vulnerability = MagicMock(side_effect=mock_scan_vulnerability)
+
+    # Run the scan_vulnerabilities method
+    vulns = await port_seeker.scan_vulnerabilities([
+        {'port': 80, 'service': 'http', 'version': '1.1'},
+        {'port': 443, 'service': 'https', 'version': '1.1'}
+    ])
+
+    # Assert the results
+    assert len(vulns) == 2
+    assert any(vuln['port'] == 80 for vuln in vulns)
+    assert any(vuln['port'] == 443 for vuln in vulns)
+    assert all(vuln['id'] == 'CVE-2021-1234' for vuln in vulns)
+    assert all(vuln['description'] == 'Test description' for vuln in vulns)
+    assert all(vuln['cvssScore'] == 7.5 for vuln in vulns)
+
+@pytest.mark.asyncio
+async def test_run(mock_nmap, mock_nvd_client):
+    # Mock the scan_vulnerability method to return predictable results
+    port_seeker = PortSeeker()
+    
+    async def mock_scan_vulnerability(service):
+        if service['port'] == 80:
+            return [{'id': 'CVE-2021-1234', 'description': 'Test description', 'cvssScore': 7.5, 'port': 80}]
+        elif service['port'] == 443:
+            return [{'id': 'CVE-2021-1234', 'description': 'Test description', 'cvssScore': 7.5, 'port': 443}]
+    
+    port_seeker.scan_vulnerability = MagicMock(side_effect=mock_scan_vulnerability)
+
+    # Run the run method
+    vulns = await port_seeker.run('127.0.0.1')
+
+    # Assert the results
+    assert len(vulns) == 2
+    assert any(vuln['port'] == 80 for vuln in vulns)
+    assert any(vuln['port'] == 443 for vuln in vulns)
+    assert all(vuln['id'] == 'CVE-2021-1234' for vuln in vulns)
+    assert all(vuln['description'] == 'Test description' for vuln in vulns)
+    assert all(vuln['cvssScore'] == 7.5 for vuln in vulns)
