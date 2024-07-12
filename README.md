@@ -1,130 +1,134 @@
-   ```markdown
-   # PortSeeker
+```markdown
+# PortSeeker: Network Vulnerability Scanner
 
-   PortSeeker is a powerful tool designed for network administrators and security professionals. It combines port scanning capabilities with vulnerability assessment using the National Vulnerability Database (NVD) API. This allows users to quickly identify potential security risks in their network environments.
+PortSeeker is a powerful network scanning tool that helps you identify open ports and potential vulnerabilities on target systems. It combines two key components:
 
-   ## Table of Contents
-   - [Features](#features)
-   - [Setup](#setup)
-   - [Usage](#usage)
-   - [Contributing](#contributing)
-   - [License](#license)
-   - [Troubleshooting](#troubleshooting)
-   - [Technology Stack](#technology-stack)
-   - [Code of Conduct](#code-of-conduct)
+- **Efficient Port Scanning (C++):** A fast and reliable port scanner implemented in C++, leveraging the `nmap` library for accurate port discovery and service detection.
+- **Vulnerability Assessment (Python):** A Python module that integrates with the National Vulnerability Database (NVD) API to assess the severity of vulnerabilities found on open ports.
 
-   ## Features
-   - Port scanning using nmap
-   - Service version detection
-   - Vulnerability assessment using NVD API
-   - Rate-limited API requests
-   - Asynchronous processing
+## Table of Contents
 
-   ## Setup
-   1. Clone the repository:
-      ```sh
-      git clone https://github.com/yourusername/portseeker.git
-      cd portseeker
-      ```
-   2. Create a virtual environment and activate it:
-      ```sh
-      python -m venv venv
-      source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
-      ```
-   3. Install the required packages:
-      ```sh
-      pip install -r requirements.txt
-      ```
-   4. Create a `.env` file in the project root and add your NVD API key:
-      ```sh
-      NVD_API_KEY=your_api_key_here
-      ```
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Basic Port Scanning (C++)](#basic-port-scanning-c)
+  - [Vulnerability Assessment with NVD API (Python)](#vulnerability-assessment-with-nvd-api-python)
+- [Contributing](#contributing)
+- [License](#license)
+- [Troubleshooting](#troubleshooting)
+- [Authors](#authors)
 
-   ## Usage
-   Run the script with a target IP or hostname:
-   ```sh
-   python portseeker.py 192.168.1.1
+## Installation
+
+1. **Clone the Repository:**
+   ```bash
+   git clone https://github.com/yourusername/portseeker.git
+   cd portseeker
    ```
 
-   ## Contributing
-   Contributions are welcome! Please feel free to submit a Pull Request.
+2. **Install Dependencies:**
 
-   ## Troubleshooting
-   - **Issue: `ModuleNotFoundError` when running the script.**
-     - Solution: Ensure all dependencies are installed by running `pip install -r requirements.txt`.
-   - **Issue: API key not working.**
-     - Solution: Verify that your API key is correct and has not expired. You can obtain a new API key from the NVD website if necessary.
+   - **For Python (NVD API Integration):**
+     ```bash
+     python3 -m venv venv      # Create a virtual environment
+     source venv/bin/activate  # Activate the environment
+     pip install -r requirements.txt
+     ```
 
-   ## Technology Stack
-   - Python
-   - Nmap
-   - Requests
-   - Python-dotenv
-   - Tenacity
+   - **For C++ (Core Scanner):**
+     - **Arch-based Distros:**
+       ```bash
+       sudo pacman -S curl g++
+       g++ compile.cpp -o prtker -std=c++11 -lcurl
+       ```
+     - **Debian-based Distros:**
+       ```bash
+       sudo bash start.sh
+       ```
 
-   ## Project Structure
+3. **Set up your NVD API Key:**
+   - Obtain an API key from the [NVD website](https://nvd.nist.gov/developers/request-an-api-key).
+   - Create a `.env` file in the root directory of the project.
+   - Add the following line to your `.env` file, replacing `your_api_key_here` with your actual NVD API key:
+     ```plaintext
+     NVD_API_KEY=your_api_key_here
+     ```
 
-   - **`.gitignore`**: This file specifies intentionally untracked files that Git should ignore. It includes:
-     - `.env` file to prevent sensitive information from being committed.
-     - Python compiled files (`*.pyc`, `__pycache__/`).
-     - Virtual environment directory (`venv/`).
-     - Log files (`*.log`).
-     - IDE-specific files (`.vscode/`, `.idea/`).
+## Usage
 
-   - **`setup.py`**: This file is used for packaging and distribution. It includes:
-     - Project metadata such as name, version, author, and description.
-     - Dependencies required for the project.
-     - Entry points for console scripts.
-     - Classifiers for categorizing the project.
+### Basic Port Scanning (C++)
 
-   ## Code of Conduct
-   Please note that this project is released with a [Contributor Code of Conduct](CODE_OF_CONDUCT.md). By participating in this project, you agree to abide by its terms.
+Run as root:
+```bash
+./prtker 192.168.0.1        # Basic Scan
+./prtker 192.168.0.1 -sV  # Port Version Scan
+./prtker 192.168.0.1 -p 80 # Scan a specific port (e.g., port 80)
+```
 
-   ## PortSeeker version: 1.6
-   <center>
-       <img src="IMG_0385.jpeg"><br>
-       <img src="01.png">
-       <img src="02.png">
-   </center>
-   * 
-   Port Scanner, opensource and programmed in C++ for linux distros.
+### Vulnerability Assessment with NVD API (Python)
 
-   ### Free Open-Source vulnerability scanner
-   #### For arch based distros
-   ```
-   pacman -S curl
-   g++ compile.cpp -o prtker -std=c++11 -lcurl
-   ```
-   #### For debian based distros
-   ```
-   sudo bash start.sh
-   ./prtker
-   ```
-   ### execute
-   ```
-   ./prtker
-   ```
-   ### Commands
-   ```
-   !!!!!everything must be run as root!!!!
+Activate your Python virtual environment:
+```bash
+source venv/bin/activate
+```
 
-   ./prtker 192.168.0.1 ---> BasicScan
-   ./prtker 192.168.0.1 -sV ---> Port Version Scan
-   ./prtker 192.168.0.1 -p 80 ---> specific port
-   ```
-   ## Improvements:
-   ```
-   >>> Optimized code
-   >>> new port version scanning function
-   >>> New colors on console ***
-   >>> New feature for quieter network scans
-   >>> Feature to obtain server status code
-   >>> Performance improvement
-   >>> Friendlier Banner and UI
-   ```
+Run the Python script:
+```bash
+python API/portseeker.py <target_IP_or_hostname>
+```
 
-   ## Authors
-   @DigitalNinja00
-   @jsposu
-   @Cr0w-ui
-   @elliotsecops
+**Example:**
+```bash
+python API/portseeker.py 192.168.1.100
+```
+
+**Output:**
+The script will print a list of open ports and any associated vulnerabilities found in the NVD database.
+
+**Example Output:**
+```plaintext
+Port: 22
+CVE ID: CVE-2023-1234 
+Description: A vulnerability in the SSH server...
+CVSS Score: 7.5
+---
+Port: 80
+CVE ID: CVE-2023-5678
+Description: A vulnerability in the web server...
+CVSS Score: 9.0
+---
+```
+
+## Contributing
+
+Contributions are welcome! If you'd like to contribute to the project, please follow these steps:
+
+1. Fork the repository.
+2. Create a new branch for your feature or bug fix.
+3. Make your changes and commit them.
+4. Push your changes to your fork.
+5. Submit a pull request to the main repository.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Troubleshooting
+
+- **Issue: `ModuleNotFoundError` when running the Python script.**
+  - **Solution:** Ensure all Python dependencies are installed by running `pip install -r requirements.txt` within your activated virtual environment.
+
+- **Issue: API key not working.**
+  - **Solution:**
+    - Verify that your API key is correct and has not expired.
+    - You can obtain a new API key from the [NVD website](https://nvd.nist.gov/developers/request-an-api-key) if necessary.
+    - Make sure the `.env` file is in the correct location (the project root directory) and has the correct format.
+
+## Authors
+
+- **Original C++ Port Scanner:**
+  - @DigitalNinja00
+  - @jsposu
+  - @Cr0w-ui
+
+- **Python NVD API Integration:**
+  - @elliotsecops
