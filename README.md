@@ -1,4 +1,3 @@
-```markdown
 # PortSeeker: Network Vulnerability Scanner
 
 PortSeeker is a powerful network scanning tool that helps you identify open ports and potential vulnerabilities on target systems. It combines two key components:
