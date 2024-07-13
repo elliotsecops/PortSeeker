@@ -20,7 +20,7 @@ PortSeeker is a powerful network scanning tool that helps you identify open port
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/yourusername/portseeker.git
+   git clone https://github.com/DigitalNinja00/PortSeeker.git
    cd portseeker
    ```
 
@@ -130,4 +130,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
   - @Cr0w-ui
 
 - **Python NVD API Integration:**
-  - @elliotsecops
+  - @ElliotSecOps
