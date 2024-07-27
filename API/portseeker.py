@@ -1,4 +1,3 @@
-# API/portseeker.py
 import argparse
 import nmap
 import asyncio
@@ -7,6 +6,9 @@ from API.nvd_api_client import NVDAPIClient
 from .logger import setup_logger, default_logger as logger
 import os
 from dotenv import load_dotenv
+import time
+import requests
+
 load_dotenv()
 
 logger = setup_logger(__name__)
@@ -16,17 +18,17 @@ def run_in_executor(func, *args):
     return loop.run_in_executor(None, func, *args)
 
 class PortSeeker:
-    CALLS = 5
-    RATE_LIMIT = 30
+    CALLS = int(os.getenv('NVD_API_CALLS', 50))  # Fallback to default if not set
+    RATE_LIMIT = int(os.getenv('NVD_API_RATE_LIMIT', 30))
 
-    def __init__(self, nm=None):
+    def __init__(self):
         self.nvd_client = NVDAPIClient()
-        self.nm = nm if nm else nmap.PortScanner()
+        self.nm = nmap.PortScanner()
 
     async def scan_ports(self, target):
         logger.info(f"Scanning ports for target: {target}")
         try:
-            self.nm.scan(target, arguments='-sV')  # -sV for version detection
+            self.nm.scan(target, arguments='-sV')
             services = []
             for host in self.nm.all_hosts():
                 for proto in self.nm[host].all_protocols():
@@ -35,7 +37,7 @@ class PortSeeker:
                         service = self.nm[host][proto][port]
                         services.append({
                             'port': port,
-                            'service': service['name'],  # Ensure this is correctly accessing the 'name' field
+                            'service': service['name'],
                             'version': service['version']
                         })
             return services
@@ -50,27 +52,41 @@ class PortSeeker:
     @limits(calls=CALLS, period=RATE_LIMIT)
     async def scan_vulnerability(self, service):
         try:
-            keyword = f"{service['service']} {service['version']}"
+            keyword = f"{service.get('service', '')} {service.get('version', '')}".strip()
+            if not keyword:
+                logger.warning(f"Skipping vulnerability scan for service with empty keyword: {service}")
+                return []
             logger.debug(f"Scanning vulnerabilities for: {keyword}")
+
             response = await run_in_executor(self.nvd_client.search_vulnerabilities, keyword)
+            if response.status_code != 200:
+                logger.warning(f"NVD API returned status code {response.status_code} for keyword: {keyword}")
+                return []
+
             parsed_vulns = self.nvd_client.parse_vulnerabilities(response.json())
-            for vuln in parsed_vulns:
-                vuln['port'] = service['port']
-            return parsed_vulns
+            return self.associate_vulns_with_ports(parsed_vulns, service['port'])
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error during vulnerability scan: {str(e)}")
+            return []
         except Exception as e:
             logger.error(f"Error scanning vulnerabilities for {service}: {str(e)}")
             return []
 
+    def associate_vulns_with_ports(self, parsed_vulns, port):
+        for vuln in parsed_vulns:
+            vuln['port'] = port
+        return parsed_vulns
+
     async def scan_vulnerabilities(self, services):
         tasks = [self.scan_vulnerability(service) for service in services]
         results = await asyncio.gather(*tasks)
-        return [vuln for sublist in results for vuln in sublist]
+        return results
 
     async def run(self, target):
         try:
             services = await self.scan_ports(target)
             vulnerabilities = await self.scan_vulnerabilities(services)
-            return vulnerabilities
+            return [vuln for sublist in vulnerabilities for vuln in sublist]
         except Exception as e:
             logger.error(f"Error during scan: {str(e)}")
             return []
@@ -83,7 +99,6 @@ async def main():
     port_seeker = PortSeeker()
     try:
         vulnerabilities = await asyncio.wait_for(port_seeker.run(args.target), timeout=300)
-        
         if not vulnerabilities:
             logger.info("No vulnerabilities found.")
             return
