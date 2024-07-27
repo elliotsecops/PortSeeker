@@ -1,6 +1,6 @@
 # portseeker/__init__.py
 
-from .logger import setup_logger, default_logger
+from API.logger import setup_logger, default_logger
 from .nvd_api_client import NVDAPIClient
 from .portseeker import PortSeeker
 
